@@ -1,15 +1,13 @@
 import { NextRequest } from "next/server";
 import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import { compiledRefundGraph } from "@/lib/agent/graph";
-import { v4 as uuidv4 } from "uuid";
-
-// In-memory log store (for demo)
-const logStore = new Map<string, any[]>();
+import { addLogs } from "@/lib/logs"; // <-- import from the shared utility
 
 export async function POST(req: NextRequest) {
   try {
     const { messages, conversationId: inputConvId } = await req.json();
-    const conversationId = inputConvId || uuidv4();
+    // Use a fixed demo ID for simplicity
+    const conversationId = "demo-1";
 
     const langgraphInput = {
       messages: messages.map((m: any) =>
@@ -23,11 +21,10 @@ export async function POST(req: NextRequest) {
 
     const reply = result.messages.at(-1);
     const decision = result.decision;
-    const logs = result.logs;
+    const logs = result.logs || [];
 
-    // Store logs for this conversation
-    const existing = logStore.get(conversationId) || [];
-    logStore.set(conversationId, [...existing, ...logs]);
+    // Store logs using the shared utility
+    addLogs(conversationId, logs);
 
     return Response.json({
       conversationId,
@@ -42,9 +39,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// Helper to retrieve logs (used by SSE endpoint)
-export function getLogs(conversationId: string) {
-  return logStore.get(conversationId) || [];
 }
