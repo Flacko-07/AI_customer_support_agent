@@ -283,7 +283,7 @@ You can tweak `lib/data/crm.ts` and `lib/data/policy.ts` to match stricter or mo
 
 ## 📄 License
 
-MIT or your preferred license. (Update this section once you’ve chosen a license.)
+This project is licensed under the [MIT License](./LICENSE).
 
 ---
 
