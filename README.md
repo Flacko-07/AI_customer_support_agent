@@ -44,10 +44,6 @@ The project is designed as a **production-style demo**:
   - Uses the **Web Speech API** for microphone → text and browser text-to-speech for replies.
   - No external speech billing needed; runs entirely in-chrome.
 
-- **LiveKit Hooks (Optional)**
-  - API endpoint ready for issuing LiveKit tokens.
-  - Self-host LiveKit server and add a bot worker to stream full duplex audio if desired.
-
 ---
 
 ## 🧱 Tech Stack
@@ -56,17 +52,13 @@ The project is designed as a **production-style demo**:
 
 - Next.js (App Router, TypeScript)
 - React 18
-- Tailwind CSS + custom globals for editorial styling
+- Tailwind CSS (with inline fallbacks for robustness) + custom globals for editorial styling
 - Web Speech API (speech recognition + speech synthesis)
 
 **Agent Backend**
 
 - LangGraph JS/TS (`@langchain/langgraph`) for the agent state machine.
 - `@langchain/openai` client pointed at a **self-hosted OpenAI-compatible LLM**.
-
-**Voice / Realtime (Optional)**
-
-- Self-hosted **LiveKit** media server (`livekit-server`) with `livekit-client` on the frontend.
 
 ---
 
@@ -80,13 +72,11 @@ AI_customer_support_agent/
     layout.tsx            # Root layout, loads globals.css
     page.tsx              # Landing, links to /support and /admin
     support/page.tsx      # Customer support chat UI
-    admin/page.tsx        # Admin reasoning logs view (WIP)
+    admin/page.tsx        # Admin reasoning logs view (polling JSON endpoint – easily upgradable to SSE)
     api/
       support/
         chat/route.ts     # POST /api/support/chat → LangGraph agent
-        logs/[id]/route.ts# GET /api/support/logs/:id (SSE placeholder)
-      livekit/
-        token/route.ts    # GET /api/livekit/token → LiveKit access token
+        logs/[id]/route.ts# GET /api/support/logs/:id (polling JSON endpoint – easily upgradable to SSE)
 
   components/
     ChatWindow.tsx        # Main editorial chat UI
@@ -117,7 +107,6 @@ AI_customer_support_agent/
 - pnpm / npm / yarn
 - A **self-hosted LLM** exposing an OpenAI-compatible `/v1/chat/completions` endpoint
   (e.g. vLLM + FastAPI, OpenWebUI with OpenAI bridge, or custom wrapper around DeepSeek/Llama).
-- (Optional) **LiveKit server** if you want full audio transport; Web Speech input works without it.
 
 ### 2. Clone and install
 
@@ -139,14 +128,9 @@ Create a `.env.local` file at the project root:
 LLM_BASE_URL=http://localhost:8000/v1
 LLM_MODEL_NAME=local-llm
 LLM_API_KEY=dummy            # required by the client, often ignored by self-hosted setups
-
-# LiveKit (optional, only if you want to experiment with realtime audio)
-LIVEKIT_API_KEY=devkey
-LIVEKIT_API_SECRET=devsecret
-LIVEKIT_URL=ws://localhost:7880
 ```
 
-> If you don’t need LiveKit yet, you can omit `LIVEKIT_*` and just use the browser voice input.
+> Adjust these values to match your local LLM setup.
 
 ### 4. Run your local LLM
 
@@ -203,22 +187,7 @@ uvicorn server:app --host 0.0.0.0 --port 8000
 
 Then make sure `LLM_BASE_URL=http://localhost:8000/v1`.
 
-### 5. (Optional) Run LiveKit
-
-If you want to try full realtime audio streams later:
-
-```bash
-docker run --rm -it \
-  -p 7880:7880 -p 7881:7881 \
-  -e LIVEKIT_API_KEY=devkey \
-  -e LIVEKIT_API_SECRET=devsecret \
-  livekit/livekit-server \
-  --dev
-```
-
-The app’s `/api/livekit/token` endpoint will then issue tokens for clients connecting to `LIVEKIT_URL`.
-
-### 6. Start the dev server
+### 5. Start the dev server
 
 ```bash
 npm run dev
@@ -229,7 +198,7 @@ pnpm dev
 Open:
 
 - `http://localhost:3000/support` → customer-facing chat
-- `http://localhost:3000/admin` → admin reasoning logs view (placeholder SSE logs at the moment)
+- `http://localhost:3000/admin` → admin reasoning logs view (polling JSON endpoint – easily upgradable to SSE)
 
 ---
 
@@ -257,7 +226,7 @@ Open:
 4. **Admin logs (WIP)**
 
    - Agent nodes push log events into a `logs` channel.
-   - `/admin` subscribes via SSE to render a reasoning timeline (currently wired to a placeholder; easy to hook to a real store).
+   - `/admin` currently reads from a simple JSON endpoint, but the API is structured to be easily upgraded to SSE.
 
 ---
 
@@ -275,7 +244,7 @@ You can tweak `lib/data/crm.ts` and `lib/data/policy.ts` to match stricter or mo
 ## 🗺️ Roadmap / Ideas
 
 - Wire `/api/support/logs/:id` to a real log store (Redis, DB) and render full node-level reasoning in `/admin`.
-- Add a proper **voice bot worker** that joins a LiveKit room, runs ASR → LangGraph → TTS, and streams audio back into the room.
+- Add a proper **voice bot worker** that joins a realtime audio room (for example using LiveKit) and streams ASR → agent → TTS.
 - Add persistable conversations with a database.
 - Add authentication for admin views.
 
